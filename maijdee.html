@@ -413,14 +413,8 @@ footer small{font-size:.72rem;opacity:.45;}
 
 <!-- REGULAR MENU -->
 <div id="regularSection">
-  <div class="cat-chips">
-    <button class="cat-chip active" onclick="filterCat('all',this)">সব</button>
-    <button class="cat-chip" onclick="filterCat('কাচ্চি',this)">কাচ্চি</button>
-    <button class="cat-chip" onclick="filterCat('চিকেন দম বিরিয়ানি',this)">চিকেন বিরিয়ানি</button>
-    <button class="cat-chip" onclick="filterCat('মাটন তেহারি',this)">মাটন তেহারি</button>
-    <button class="cat-chip" onclick="filterCat('প্লেইন পোলাও',this)">প্লেইন পোলাও</button>
-    <button class="cat-chip" onclick="filterCat('সাইড আইটেম',this)">সাইড আইটেম</button>
-    <button class="cat-chip" onclick="filterCat('ডেজার্ট ও ড্রিংকস',this)">ডেজার্ট ও ড্রিংকস</button>
+  <div class="cat-chips" id="catChips">
+    <button class="cat-chip active" onclick="filterCat('all')">সব</button>
   </div>
   <div class="sec-head"><h2>আমাদের মেনু</h2></div>
   <div class="food-grid" id="foodGrid"></div>
@@ -526,9 +520,12 @@ const DEF_SETTINGS = {
 
 // Default delivery zones — Admin can override via DB
 const DEF_ZONES = [
-  { id:'z1', name:'মাইজদী সদর',       charge:0   },
-  { id:'z2', name:'নিকটবর্তী এলাকা',  charge:40  },
-  { id:'z3', name:'অন্যান্য এলাকা',   charge:100 },
+  { id:'z1', name:'মাইজদী সদর', charge:0, note:'বিনামূল্যে ডেলিভারি' },
+  { id:'z2', name:'চৌমুহনী', charge:30, note:'৩০ টাকা ডেলিভারি চার্জ' },
+  { id:'z3', name:'সেনবাগ', charge:50, note:'৫০ টাকা ডেলিভারি চার্জ' },
+  { id:'z4', name:'বেগমগঞ্জ', charge:50, note:'৫০ টাকা ডেলিভারি চার্জ' },
+  { id:'z5', name:'সোনাইমুড়ি', charge:60, note:'৬০ টাকা ডেলিভারি চার্জ' },
+  { id:'z6', name:'অন্যান্য এলাকা', charge:100, note:'১০০ টাকা ডেলিভারি চার্জ' },
 ];
 
 const DEF_MENU = [
@@ -559,6 +556,8 @@ const DEF_PKGS = [
    APP STATE
 ============================================================ */
 let sett     = {...DEF_SETTINGS};
+let _listenersStarted = false; // duplicate listener protection
+let _statusListenerStarted = false;
 let menuAll  = [...DEF_MENU];
 let pkgAll   = [...DEF_PKGS];
 let zones    = [...DEF_ZONES];
@@ -580,35 +579,33 @@ chkOnline();
    FIREBASE LISTENERS
 ============================================================ */
 function startListeners(){
+  if(_listenersStarted) return; // duplicate call protection
+  _listenersStarted = true;
   dbRef('settings').on('value', snap=>{
     const v=snap.val();
-    if(v){ sett={...DEF_SETTINGS,...v}; localStorage.setItem('kd_sett',JSON.stringify(sett)); }
+    if(v){ sett={...DEF_SETTINGS,...v}; }
     applySett();
+    // শাখা বন্ধ থাকলে নতুন settings দিয়ে screen আপডেট করো
+    updateClosedScreen();
   });
   dbRef('menu').on('value', snap=>{
     const v=snap.val();
-    if(v){
+    if(v && typeof v === 'object'){
       menuAll=Object.entries(v).map(([id,d])=>({id,...d})).filter(i=>i.active!==false);
-      localStorage.setItem('kd_menu',JSON.stringify(menuAll));
     }
     renderMenu();
   });
   dbRef('packages').on('value', snap=>{
     const v=snap.val();
-    if(v){
+    if(v && typeof v === 'object'){
       pkgAll=Object.entries(v).map(([id,d])=>({id,...d})).filter(p=>p.active!==false);
-      localStorage.setItem('kd_pkgs',JSON.stringify(pkgAll));
     }
     renderPkgs();
   });
   dbRef('zones').on('value', snap=>{
     const v=snap.val();
-    if(v){
+    if(v && typeof v === 'object'){
       zones=Object.entries(v).map(([id,d])=>({id,...d})).filter(z=>z.active!==false);
-      localStorage.setItem('kd_zones',JSON.stringify(zones));
-    } else {
-      const c=localStorage.getItem('kd_zones');
-      if(c) zones=JSON.parse(c);
     }
     buildZoneSelects();
   });
@@ -684,41 +681,32 @@ function getDeliveryCharge(){ return selZone ? (selZone.charge||0) : 0; }
 /* ============================================================
    RENDER MENU
 ============================================================ */
+function buildCatChips(){
+  const chips = document.getElementById('catChips');
+  if(!chips) return;
+  // সব unique categories বের করো
+  const cats = [...new Set(menuAll.map(i=>i.cat).filter(Boolean))];
+  const activeCat = curCat;
+  chips.innerHTML = `<button class="cat-chip ${activeCat==='all'?'active':''}" onclick="filterCat('all')">সব</button>`;
+  cats.forEach((cat,i)=>{
+    const btn=document.createElement('button');
+    btn.className='cat-chip'+(activeCat===cat?' active':'');
+    btn.textContent=cat;
+    btn.onclick=function(){ filterCat(cat); };
+    chips.appendChild(btn);
+  });
+}
+
 function renderMenu(items){
   if(!items) items = curCat==='all' ? menuAll : menuAll.filter(i=>i.cat===curCat);
+  buildCatChips();
   const grid=document.getElementById('foodGrid');
   if(!items.length){
     grid.innerHTML=`<div class="no-res"><i class="fas fa-search"></i><p>কোনো আইটেম পাওয়া যায়নি</p></div>`;
     return;
   }
   items.forEach(i=>{ if(i._sel===undefined) i._sel=0; });
-  grid.innerHTML=items.map(item=>{
-    const sizes = getSizes(item);
-    const selIdx = item._sel||0;
-    const selPrice = sizes[selIdx]?sizes[selIdx].price:0;
-    return `
-    <div class="food-card" id="fc-${item.id}">
-      <div class="food-img">
-        ${item.img
-          ? `<img src="${item.img}" alt="${item.name}" onerror="this.parentNode.innerHTML='<span style=font-size:2.8rem>${item.emoji||'🍛'}</span>'">`
-          : `<span style="font-size:2.8rem">${item.emoji||'🍛'}</span>`}
-        <span class="food-cat-tag">${item.cat||''}</span>
-      </div>
-      <div class="food-body">
-        <div class="food-name">${item.name}</div>
-        <div class="food-desc">${item.desc||''}</div>
-        <div class="size-pills">
-          ${sizes.map((s,i)=>`
-            <button class="size-pill ${i===selIdx?'sel':''}"
-              onclick="selSize('${item.id}',${i})">${s.label}</button>`).join('')}
-        </div>
-        <div class="food-price" id="fp-${item.id}">৳ ${selPrice}</div>
-        <button class="atc-btn" id="atcb-${item.id}" onclick="addToCart('${item.id}')">
-          <i class="fas fa-plus"></i> কার্টে যোগ করুন
-        </button>
-      </div>
-    </div>`;
-  }).join('');
+  grid.innerHTML=items.map(buildFoodCard).join('');
 }
 
 function renderPkgs(){
@@ -754,16 +742,55 @@ function switchTab(tab,btn){
   document.querySelectorAll('.m-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 }
-function filterCat(cat,btn){
+function filterCat(cat){
   curCat=cat;
-  document.querySelectorAll('.cat-chip').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  // search clear করো — নতুন category filter এ clean start
+  const sq = document.getElementById('searchQ');
+  if(sq) sq.value='';
+  // buildCatChips curCat দিয়ে active class সেট করবে — renderMenu এই কাজ করবে
   renderMenu(cat==='all'?menuAll:menuAll.filter(i=>i.cat===cat));
 }
+function buildFoodCard(item){
+  const sizes=getSizes(item);
+  const selIdx=item._sel||0;
+  const selPrice=sizes[selIdx]?sizes[selIdx].price:0;
+  return `
+  <div class="food-card" id="fc-${item.id}">
+    <div class="food-img">
+      ${item.img?`<img src="${item.img}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}
+      <span style="font-size:2.8rem;display:${item.img?'none':'flex'};align-items:center;justify-content:center;width:100%;height:100%">${item.emoji||'🍛'}</span>
+      <span class="food-cat-tag">${item.cat||''}</span>
+    </div>
+    <div class="food-body">
+      <div class="food-name">${item.name}</div>
+      <div class="food-desc">${item.desc||''}</div>
+      <div class="size-pills">
+        ${sizes.map((s,si)=>`<button class="size-pill ${si===selIdx?'sel':''}" onclick="selSize('${item.id}',${si})">${s.label}</button>`).join('')}
+      </div>
+      <div class="food-price" id="fp-${item.id}">৳ ${selPrice}</div>
+      <button class="atc-btn" id="atcb-${item.id}" onclick="addToCart('${item.id}')">
+        <i class="fas fa-plus"></i> কার্টে যোগ করুন
+      </button>
+    </div>
+  </div>`;
+}
+
 function doSearch(){
   const q=document.getElementById('searchQ').value.toLowerCase().trim();
-  if(!q){ renderMenu(curCat==='all'?menuAll:menuAll.filter(i=>i.cat===curCat)); return; }
-  renderMenu(menuAll.filter(i=>i.name.toLowerCase().includes(q)||(i.desc||'').toLowerCase().includes(q)||(i.cat||'').toLowerCase().includes(q)));
+  if(!q){ renderMenu(); return; }
+  const filtered=menuAll.filter(i=>
+    i.name.toLowerCase().includes(q)||
+    (i.desc||'').toLowerCase().includes(q)||
+    (i.cat||'').toLowerCase().includes(q)
+  );
+  buildCatChips();
+  const grid=document.getElementById('foodGrid');
+  if(!filtered.length){
+    grid.innerHTML='<div class="no-res"><i class="fas fa-search"></i><p>কোনো আইটেম পাওয়া যায়নি</p></div>';
+    return;
+  }
+  filtered.forEach(i=>{ if(i._sel===undefined) i._sel=0; });
+  grid.innerHTML=filtered.map(buildFoodCard).join('');
 }
 /* sizes array বের করো — নতুন ও পুরনো দুই ফরম্যাট handle করে */
 function getSizes(item){
@@ -786,7 +813,8 @@ function scrollToMenu(){ document.getElementById('menuTabs').scrollIntoView({beh
 function makeQR(){
   const url=window.location.href;
   const w=window.open('','_blank','width=300,height=360');
-  w.document.write(`<html><body style="text-align:center;font-family:sans-serif;padding:20px;background:#fff8e7"><h3 style="color:#3A1A06">QR মেনু</h3><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}" style="max-width:240px;border-radius:12px"></body></html>`);
+  if(!w){ toast('QR দেখতে popup allow করুন'); return; }
+  w.document.write('<html><body style="text-align:center;font-family:sans-serif;padding:20px;background:#fff8e7"><h3 style="color:#3A1A06">QR মেনু</h3><img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url)+'" style="max-width:240px;border-radius:12px"></body></html>');
 }
 
 function selSize(id, idx){
@@ -831,7 +859,10 @@ function addPkgToCart(id){
   saveCart(); updateCartUI();
   toast(`${pkg.name} কার্টে যোগ হয়েছে`);
 }
-function saveCart(){ localStorage.setItem('kd_cart',JSON.stringify(cart)); }
+function saveCart(){
+  try{ localStorage.setItem('kd_cart',JSON.stringify(cart)); }
+  catch(e){ console.warn('Cart save failed:',e); }
+}
 
 function updateCartUI(){
   const subtotal = cart.reduce((s,c)=>s+c.price*c.qty,0);
@@ -851,23 +882,29 @@ function updateCartUI(){
     body.innerHTML=`<div class="cart-empty"><i class="fas fa-shopping-bag"></i><p>কার্ট খালি আছে</p></div>`;
     return;
   }
-  body.innerHTML=cart.map(c=>`
-    <div class="cart-item">
+  // safe HTML build using DOM
+  body.innerHTML='';
+  cart.forEach(ci=>{
+    const div=document.createElement('div');
+    div.className='cart-item';
+    const esc=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    div.innerHTML=`
       <div class="ci-thumb">
-        ${c.img?`<img src="${c.img}" onerror="this.parentNode.textContent='${c.emoji||'🍛'}'">`:(c.emoji||'🍛')}
+        ${ci.img?`<img src="${esc(ci.img)}" onerror="this.style.display='none'">`:''}
+        <span style="font-size:1.4rem;display:${ci.img?'none':'block'}">${ci.emoji||'🍛'}</span>
       </div>
       <div class="ci-info">
-        <div class="ci-name">${c.name}</div>
-        <div class="ci-size">${c.sizeLabel||''}</div>
-        <div class="ci-price">৳ ${(c.price*c.qty).toLocaleString('bn-BD')}</div>
+        <div class="ci-name">${esc(ci.name)}</div>
+        <div class="ci-size">${esc(ci.sizeLabel||'')}</div>
+        <div class="ci-price">৳ ${(ci.price*ci.qty).toLocaleString('bn-BD')}</div>
       </div>
       <div class="qty-ctrl">
-        <button class="qty-btn qty-m" onclick="chgQty('${c.key}',-1)">−</button>
-        <span class="qty-n">${c.qty}</span>
-        <button class="qty-btn qty-p" onclick="chgQty('${c.key}',1)">+</button>
-      </div>
-    </div>
-  `).join('');
+        <button class="qty-btn qty-m" onclick="chgQty('${esc(ci.key)}',-1)">−</button>
+        <span class="qty-n">${ci.qty}</span>
+        <button class="qty-btn qty-p" onclick="chgQty('${esc(ci.key)}',1)">+</button>
+      </div>`;
+    body.appendChild(div);
+  });
 }
 function chgQty(key,d){
   const idx=cart.findIndex(c=>c.key===key); if(idx<0) return;
@@ -890,21 +927,27 @@ function closeCart(){
    CHECKOUT
 ============================================================ */
 function openCheckout(){
+  if(_branchClosed){ toast('এই শাখা এখন বন্ধ আছে!'); return; }
   if(!cart.length){ toast('কার্ট খালি আছে!'); return; }
   closeCart();
   const subtotal = cart.reduce((s,c)=>s+c.price*c.qty,0);
   const delivery = getDeliveryCharge();
   const grand    = subtotal + delivery;
-  document.getElementById('orderSumBox').innerHTML=`
-    <h3>অর্ডার সারসংক্ষেপ</h3>
-    ${cart.map(c=>`<div class="sum-row"><span>${c.name} (${c.sizeLabel}) ×${c.qty}</span><span>৳ ${c.price*c.qty}</span></div>`).join('')}
-    <hr class="sum-divider">
+  // safe HTML — DOM ব্যবহার করো
+  const sumBox = document.getElementById('orderSumBox');
+  const esc = s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let sumHtml = '<h3>অর্ডার সারসংক্ষেপ</h3>';
+  cart.forEach(ci=>{
+    sumHtml += `<div class="sum-row"><span>${esc(ci.name)} (${esc(ci.sizeLabel||'')}) ×${ci.qty}</span><span>৳ ${ci.price*ci.qty}</span></div>`;
+  });
+  sumHtml += `<hr class="sum-divider">
     <div class="sum-row"><span>খাবারের মূল্য</span><span>৳ ${subtotal}</span></div>
     <div class="sum-delivery">
-      <span><i class="fas fa-motorcycle"></i> ডেলিভারি চার্জ ${selZone?'('+selZone.name+')':''}</span>
+      <span><i class="fas fa-motorcycle"></i> ডেলিভারি চার্জ ${selZone?'('+esc(selZone.name)+')':''}</span>
       <span>${delivery>0?'৳ '+delivery:'বিনামূল্যে ✅'}</span>
     </div>
     <div class="sum-total"><span>সর্বমোট</span><span>৳ ${grand}</span></div>`;
+  sumBox.innerHTML = sumHtml;
   updateZoneInfoBox();
   // Sync zone selects
   if(selZone) document.getElementById('coZone').value=selZone.id;
@@ -919,6 +962,10 @@ function closeCheckout(){
 }
 
 async function placeOrder(){
+  const btn=document.getElementById('confirmBtn');
+  try{
+  // শাখা বন্ধ থাকলে অর্ডার দেওয়া যাবে না
+  if(_branchClosed){ toast('এই শাখা এখন বন্ধ আছে! অর্ডার নেওয়া হচ্ছে না।'); return; }
   const zone  = selZone || zones.find(z=>z.id===document.getElementById('coZone').value) || null;
   const name  = document.getElementById('cName').value.trim();
   const phone = document.getElementById('cPhone').value.trim();
@@ -927,13 +974,13 @@ async function placeOrder(){
   if(!zone)  { toast('ডেলিভারি এলাকা বেছে নিন!'); return; }
   if(!name)  { toast('নাম দিন!'); return; }
   if(!phone) { toast('মোবাইল নম্বর দিন!'); return; }
+  if(!/^(?:\+?880|0)1[3-9]\d{8}$/.test(phone.replace(/\s|-/g,''))) { toast('সঠিক মোবাইল নম্বর দিন! (01XXXXXXXXX)'); return; }
   if(!addr)  { toast('ঠিকানা দিন!'); return; }
-  const btn=document.getElementById('confirmBtn');
   btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> অপেক্ষা করুন...';
   const subtotal  = cart.reduce((s,c)=>s+c.price*c.qty,0);
   const delivery  = zone.charge||0;
   const grand     = subtotal+delivery;
-  const oid       = 'KD'+Date.now().toString().slice(-7);
+  const oid       = 'KD'+Date.now().toString().slice(-7)+(Math.random().toString(36).slice(-3).toUpperCase()); // collision-safe
   const order={
     order_id:oid, name, phone, address:addr, note,
     zone_name:zone.name, delivery_charge:delivery,
@@ -982,54 +1029,43 @@ async function placeOrder(){
   cart=[]; saveCart(); updateCartUI();
   document.getElementById('successWrap').classList.add('on');
   btn.disabled=false; btn.innerHTML='<i class="fas fa-check-circle"></i> অর্ডার নিশ্চিত করুন';
-
-  // ৩ সেকেন্ড পর স্বয়ংক্রিয়ভাবে WhatsApp খুলবে
-  setTimeout(()=>{ window.open(waUrl,'_blank'); }, 2500);
+  // WhatsApp বাটনে ক্লিক করলেই খুলবে — auto popup browser block করে তাই সরানো হয়েছে
+  } catch(err){
+    console.error('placeOrder error:',err);
+    toast('সমস্যা হয়েছে, আবার চেষ্টা করুন');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-check-circle"></i> অর্ডার নিশ্চিত করুন';
+  }
 }
 
 /* ============================================================
    WHATSAPP URL BUILDER — সব ধরনের নম্বর handle করে
 ============================================================ */
+function normalizeBdPhone(num){
+  // সব ধরনের বাংলাদেশি নম্বর → 8801XXXXXXXXX (13 digits)
+  num = (num||'').replace(/[^0-9]/g,'');
+  if(!num) return '';
+  if(num.startsWith('8801') && num.length===13) return num;   // 8801XXXXXXXXX ✅
+  if(num.startsWith('880')  && num.length===12) return '880'+num.slice(3); // 880XXXXXXXXX rare
+  if(num.startsWith('01')   && num.length===11) return '880'+num.slice(1); // 01XXXXXXXXX → 8801XXXXXXXXX
+  if(num.startsWith('1')    && num.length===10) return '880' +num;         // 1XXXXXXXXX → 8801XXXXXXXXX
+  return num; // অন্য format — যা আছে পাঠিয়ে দাও
+}
+
 function getWhatsAppUrl(msg){
   const raw = (sett.whatsapp || '').trim();
+  if(!raw) return 'https://wa.me/?text='+encodeURIComponent(msg);
 
-  // যদি wa.me URL হয়: https://wa.me/8801810190892
-  const urlMatch = raw.match(/wa\.me\/(\+?[\d]+)/);
+  // wa.me URL আছে? → সরাসরি extract করো
+  const urlMatch = raw.match(/wa\.me\/([+\d]+)/);
   if(urlMatch){
-    let n = urlMatch[1].replace(/[^0-9]/g,'');
-    if(n.startsWith('0') && n.length===11) n = '880'+n.slice(1);
-    else if(!n.startsWith('880') && n.length===10) n = '880'+n;
-    return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+    const n = normalizeBdPhone(urlMatch[1]);
+    return 'https://wa.me/'+n+'?text='+encodeURIComponent(msg);
   }
 
-  // শুধু নম্বর: যেকোনো ফরম্যাট
-  let num = raw.replace(/[^0-9]/g, '');
-
-  if(!num){
-    // নম্বর নেই — শুধু মেসেজ পাঠাও
-    return `https://wa.me/?text=${encodeURIComponent(msg)}`;
-  }
-
-  // সব ধরনের বাংলাদেশি নম্বর ঠিক করো
-  if(num.startsWith('8801') && num.length===13){
-    // 8801810190892 ✅ সঠিক
-  } else if(num.startsWith('880') && num.length===12){
-    // 880810190892 → একটু সংক্ষিপ্ত, ঠিক থাকুক
-  } else if(num.startsWith('01') && num.length===11){
-    // 01810190892 → 8801810190892
-    num = '880' + num.slice(1);
-  } else if(num.startsWith('0') && num.length===11){
-    // 01810190892
-    num = '880' + num.slice(1);
-  } else if(num.length===10 && num.startsWith('1')){
-    // 1810190892 → 8801810190892
-    num = '8801' + num.slice(1);
-  } else if(num.length===11 && num.startsWith('1')){
-    // 18101908920 → edge case
-    num = '880' + num;
-  }
-
-  return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+  // শুধু নম্বর দেওয়া আছে
+  const num = normalizeBdPhone(raw);
+  if(!num) return 'https://wa.me/?text='+encodeURIComponent(msg);
+  return 'https://wa.me/'+num+'?text='+encodeURIComponent(msg);
 }
 
 /* ============================================================
@@ -1070,43 +1106,61 @@ function buildWhatsAppMsg(order){
 /* ============================================================
    BRANCH STATUS CHECK
 ============================================================ */
+let _branchClosed = false; // global state
+
+function updateClosedScreen(){
+  // settings লোড হওয়ার পর closed screen আপডেট করো
+  if(!_branchClosed) return;
+  const screen = document.getElementById('closedScreen');
+  screen.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  const l = document.getElementById('loader');
+  if(l){ l.style.display='none'; }
+  document.getElementById('closedName').textContent    = sett.name    || 'কাচ্চি ডাইন';
+  document.getElementById('closedBranch').textContent  = sett.branch  || 'শাখা';
+  document.getElementById('closedHotline').textContent = sett.hotline || 'যোগাযোগ করুন';
+  document.getElementById('closedCall').href = sett.hotline ? 'tel:'+sett.hotline : '#';
+  document.getElementById('closedWa').href   = sett.whatsapp || '#';
+}
+
 function checkBranchStatus(){
+  if(_statusListenerStarted) return; // duplicate call protection
+  _statusListenerStarted = true;
   DB.ref(DB_PREFIX + 'status').on('value', snap=>{
     const v = snap.val();
-    const screen = document.getElementById('closedScreen');
-    if(v && v.closed === true){
-      // সব কাজ বন্ধ করো
-      screen.classList.add('show');
-      document.body.style.overflow = 'hidden';
-      // loader সরাও
-      const l = document.getElementById('loader');
-      if(l){ l.style.display='none'; }
-      // তথ্য সেট করো
-      const name    = sett.name    || 'কাচ্চি ডাইন';
-      const branch  = sett.branch  || 'শাখা';
-      const hotline = sett.hotline || '';
-      const wa      = sett.whatsapp|| '#';
-      document.getElementById('closedName').textContent    = name;
-      document.getElementById('closedBranch').textContent  = branch;
-      document.getElementById('closedHotline').textContent = hotline || 'যোগাযোগ করুন';
-      document.getElementById('closedCall').href = hotline ? 'tel:'+hotline : '#';
-      document.getElementById('closedWa').href   = wa;
+    _branchClosed = (v && v.closed === true);
+    if(_branchClosed){
+      updateClosedScreen();
     } else {
-      screen.classList.remove('show');
+      document.getElementById('closedScreen').classList.remove('show');
       document.body.style.overflow = '';
     }
   });
 }
 async function syncQueue(){
-  const q=JSON.parse(localStorage.getItem('kd_q')||'[]');
+  let q;
+  try{ q=JSON.parse(localStorage.getItem('kd_q')||'[]'); }
+  catch(e){ localStorage.removeItem('kd_q'); return; } // corrupt data clear
+  const success=[];
   for(const o of q){
-    try{ await dbRef('orders/'+o.order_id).set(o); }catch(e){ return; }
+    try{
+      await dbRef('orders/'+o.order_id).set(o);
+      success.push(o.order_id);
+    }catch(e){ continue; } // একটা fail হলে বাকিগুলো চেষ্টা করো
   }
-  localStorage.removeItem('kd_q');
+  // শুধু সফল অর্ডারগুলো queue থেকে সরাও
+  const remaining=q.filter(o=>!success.includes(o.order_id));
+  if(remaining.length){ localStorage.setItem('kd_q',JSON.stringify(remaining)); }
+  else { localStorage.removeItem('kd_q'); }
 }
 function closeSuccess(){
   document.getElementById('successWrap').classList.remove('on');
   document.body.style.overflow='';
+  // form reset করো — পরের অর্ডারে clean form
+  ['cName','cPhone','cAddr','cNote'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
 }
 
 /* ============================================================
@@ -1117,12 +1171,12 @@ function toast(msg){
   t.textContent=msg; t.classList.add('on');
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2600);
 }
-document.getElementById('coWrap').addEventListener('click',function(e){ if(e.target===this) closeCheckout(); });
-
 /* ============================================================
    INIT — runs after page + Firebase ready
 ============================================================ */
 window.addEventListener('DOMContentLoaded', function(){
+  // coWrap backdrop click — DOMContentLoaded এর ভেতরে রাখতে হবে
+  document.getElementById('coWrap').addEventListener('click',function(e){ if(e.target===this) closeCheckout(); });
   // cache clear করো যাতে সবসময় Firebase এর fresh data আসে
   // (শুধু cart রাখো)
   const savedCart = localStorage.getItem('kd_cart');
@@ -1131,7 +1185,7 @@ window.addEventListener('DOMContentLoaded', function(){
   menuAll = [...DEF_MENU];
   pkgAll  = [...DEF_PKGS];
   zones   = [...DEF_ZONES];
-  cart    = savedCart ? JSON.parse(savedCart) : [];
+  try{ cart = savedCart ? JSON.parse(savedCart) : []; }catch(e){ cart=[]; }
   // UI আপডেট
   applySett();
   renderMenu();

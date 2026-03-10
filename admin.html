@@ -337,13 +337,37 @@ nav{flex:1;padding:10px 9px;}
         <div class="ndrop-list" id="ndropList"><div class="ndrop-empty">কোনো নোটিফিকেশন নেই</div></div>
       </div>
 
-      <!-- BRANCH SWITCHER BAR -->
-      <div id="branchBar" style="background:linear-gradient(135deg,#1a0800,#3A1A06);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--gold);">
-        <div style="font-size:.75rem;font-weight:700;color:rgba(255,255,255,.6);white-space:nowrap;"><i class="fas fa-code-branch" style="color:var(--gold)"></i> শাখা:</div>
-        <div id="branchTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;"></div>
-        <button onclick="addBranchPrompt()" style="background:rgba(201,162,39,.15);border:1.5px solid var(--gold);border-radius:20px;padding:4px 12px;font-family:'Hind Siliguri',sans-serif;font-size:.72rem;font-weight:700;color:var(--gold);cursor:pointer;white-space:nowrap;">
-          <i class="fas fa-plus"></i> শাখা যোগ
-        </button>
+      <!-- BRANCH CONTROL PANEL -->
+      <div id="branchPanel" style="background:linear-gradient(135deg,#1a0800,#2d0f00);border-bottom:2px solid rgba(201,162,39,.4);overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);max-height:52px;">
+        <!-- Panel Header / Toggle -->
+        <div id="branchPanelHead" onclick="toggleBranchPanel()" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;user-select:none;">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+            <span style="font-size:.82rem;color:var(--gold);"><i class="fas fa-store-alt"></i></span>
+            <span style="font-size:.78rem;font-weight:700;color:rgba(255,255,255,.75);white-space:nowrap;">শাখা নিয়ন্ত্রণ</span>
+            <!-- Active branch badge -->
+            <span id="activeBranchBadge" style="background:rgba(201,162,39,.2);border:1px solid rgba(201,162,39,.4);border-radius:20px;padding:2px 10px;font-size:.72rem;color:var(--gold);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;"></span>
+            <!-- Status counts -->
+            <span id="branchOpenCount" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:20px;padding:2px 8px;font-size:.7rem;color:#86efac;font-weight:700;white-space:nowrap;"></span>
+            <span id="branchClosedCount" style="display:none;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:2px 8px;font-size:.7rem;color:#fca5a5;font-weight:700;white-space:nowrap;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="event.stopPropagation();addBranchPrompt()" style="background:rgba(201,162,39,.15);border:1px solid rgba(201,162,39,.35);border-radius:14px;padding:3px 10px;font-family:'Hind Siliguri',sans-serif;font-size:.7rem;font-weight:700;color:var(--gold);cursor:pointer;white-space:nowrap;">
+              <i class="fas fa-plus"></i> শাখা যোগ
+            </button>
+            <span id="branchPanelArrow" style="color:rgba(255,255,255,.4);font-size:.75rem;transition:transform .3s;">▼</span>
+          </div>
+        </div>
+        <!-- Panel Body -->
+        <div style="padding:0 12px 12px;">
+          <!-- Search -->
+          <div style="position:relative;margin-bottom:10px;">
+            <input id="branchSearch" type="text" placeholder="শাখা খুঁজুন..." oninput="filterBranchTabs(this.value)"
+              style="width:100%;padding:7px 12px 7px 32px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:20px;font-family:'Hind Siliguri',sans-serif;font-size:.78rem;color:#fff;outline:none;box-sizing:border-box;">
+            <i class="fas fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.35);font-size:.72rem;pointer-events:none;"></i>
+          </div>
+          <!-- Branch Grid -->
+          <div id="branchTabs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:7px;max-height:260px;overflow-y:auto;padding-right:2px;"></div>
+        </div>
       </div>
 
       <!-- ======= DASHBOARD ======= -->
@@ -517,6 +541,20 @@ nav{flex:1;padding:10px 9px;}
     "zones": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "status": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "branches": {
+      "$branch": {
+        "settings":  { ".read": true, ".write": "auth != null" },
+        "menu":      { ".read": true, ".write": "auth != null" },
+        "packages":  { ".read": true, ".write": "auth != null" },
+        "orders":    { ".read": "auth != null", ".write": true },
+        "zones":     { ".read": true, ".write": "auth != null" },
+        "status":    { ".read": true, ".write": "auth != null" }
+      }
     }
   }
 }</pre>
@@ -645,15 +683,26 @@ nav{flex:1;padding:10px 9px;}
       <div class="fg2"><label>আইটেমের নাম *</label><input type="text" id="m-name" placeholder="বাসমতি কাচ্চি বিরিয়ানি"></div>
       <div class="fg2">
         <label>ক্যাটাগরি *</label>
-        <select id="m-cat">
+        <select id="m-cat" onchange="onCatChange()">
           <option value="">বেছে নিন</option>
-          <option value="কাচ্চি">কাচ্চি</option>
-          <option value="চিকেন দম বিরিয়ানি">চিকেন দম বিরিয়ানি</option>
-          <option value="মাটন তেহারি">মাটন তেহারি</option>
-          <option value="প্লেইন পোলাও">প্লেইন পোলাও</option>
-          <option value="সাইড আইটেম">সাইড আইটেম</option>
-          <option value="ডেজার্ট ও ড্রিংকস">ডেজার্ট ও ড্রিংকস</option>
+          <option value="কাচ্চি">🍛 কাচ্চি</option>
+          <option value="চিকেন দম বিরিয়ানি">🍗 চিকেন দম বিরিয়ানি</option>
+          <option value="মাটন তেহারি">🥘 মাটন তেহারি</option>
+          <option value="প্লেইন পোলাও">🍚 প্লেইন পোলাও</option>
+          <option value="সাইড আইটেম">🍢 সাইড আইটেম</option>
+          <option value="ডেজার্ট ও ড্রিংকস">🍮 ডেজার্ট ও ড্রিংকস</option>
+          <option value="জুস ও শরবত">🥤 জুস ও শরবত</option>
+          <option value="কোল্ড ড্রিংকস">🧃 কোল্ড ড্রিংকস</option>
+          <option value="স্পেশাল আইটেম">⭐ স্পেশাল আইটেম</option>
+          <option value="__custom__">✏️ নতুন ক্যাটাগরি লিখুন...</option>
         </select>
+        <!-- Custom category input — শুধু __custom__ select করলে দেখাবে -->
+        <div id="customCatBox" style="display:none;margin-top:6px;">
+          <input type="text" id="m-cat-custom"
+            placeholder="নতুন ক্যাটাগরির নাম লিখুন (যেমন: জুস, লাচ্ছি, কফি...)"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--gold);border-radius:8px;font-family:'Hind Siliguri',sans-serif;font-size:.85rem;outline:none;background:#fffdf5;">
+          <div style="font-size:.72rem;color:var(--txt-l);margin-top:3px;">💡 যেকোনো নতুন ক্যাটাগরি তৈরি করুন</div>
+        </div>
       </div>
       <div class="fg2"><label>বিবরণ</label><textarea id="m-desc" placeholder="খাবারের বিবরণ..."></textarea></div>
       
@@ -695,11 +744,34 @@ nav{flex:1;padding:10px 9px;}
       </div>
       <div class="fg2"><label>ইমোজি</label><input type="text" id="m-emoji" placeholder="🍛"></div>
       <div class="fg2">
-        <label>ছবি (সর্বোচ্চ ২৫০KB)</label>
+        <label>ছবি</label>
         <div style="border:2px dashed #e8d5b0;border-radius:var(--rs);padding:14px;background:#fdf8f0;">
-          <input type="file" id="m-img-file" accept="image/*" style="width:100%;margin-bottom:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;" onchange="previewMenuImg(this)">
-          <img id="m-img-prev" style="max-width:100%;max-height:110px;border-radius:7px;display:none;margin-top:5px">
-          <div style="font-size:.72rem;color:var(--txt-l);margin-top:5px">💡 ছবি ছোট রাখুন (tinypng.com)</div>
+          <!-- Tab buttons -->
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button type="button" id="mImgTabUrl" onclick="switchImgTab('m','url')"
+              style="flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--gold);background:var(--gold);color:var(--brown-d);font-family:'Hind Siliguri',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;">
+              🔗 URL/ImgBB লিংক
+            </button>
+            <button type="button" id="mImgTabFile" onclick="switchImgTab('m','file')"
+              style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #e8d5b0;background:#fff;color:var(--txt-m);font-family:'Hind Siliguri',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;">
+              📁 ফাইল আপলোড
+            </button>
+          </div>
+          <!-- URL input -->
+          <div id="mImgUrlBox">
+            <input type="text" id="m-img-url" placeholder="https://i.ibb.co/... বা যেকোনো ছবির লিংক"
+              style="width:100%;padding:8px 10px;border:1.5px solid #e8d5b0;border-radius:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;outline:none;"
+              oninput="previewMenuImgUrl(this.value)">
+            <div style="font-size:.72rem;color:var(--txt-l);margin-top:4px;">
+              💡 <a href="https://imgbb.com" target="_blank" style="color:var(--gold-d);">imgbb.com</a> এ আপলোড করে লিংক দিন — সবচেয়ে দ্রুত!
+            </div>
+          </div>
+          <!-- File input -->
+          <div id="mImgFileBox" style="display:none;">
+            <input type="file" id="m-img-file" accept="image/*" style="width:100%;margin-bottom:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;" onchange="previewMenuImg(this)">
+            <div style="font-size:.72rem;color:var(--txt-l);">⚠️ ফাইল আপলোড করলে লোড হতে দেরি হতে পারে</div>
+          </div>
+          <img id="m-img-prev" style="max-width:100%;max-height:110px;border-radius:7px;display:none;margin-top:8px;">
         </div>
       </div>
       <button class="savebtn" id="menuSaveBtn" onclick="saveMenuItem()"><i class="fas fa-save"></i> সংরক্ষণ করুন</button>
@@ -725,11 +797,31 @@ nav{flex:1;padding:10px 9px;}
         <div class="pitag-row" id="pitemTags"></div>
       </div>
       <div class="fg2">
-        <label>ছবি (সর্বোচ্চ ২৫০KB)</label>
+        <label>ছবি</label>
         <div style="border:2px dashed #e8d5b0;border-radius:var(--rs);padding:14px;background:#fdf8f0;">
-          <input type="file" id="p-img-file" accept="image/*" style="width:100%;margin-bottom:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;" onchange="previewPkgImg(this)">
-          <img id="p-img-prev" style="max-width:100%;max-height:110px;border-radius:7px;display:none;margin-top:5px">
-          <div style="font-size:.72rem;color:var(--txt-l);margin-top:5px">💡 ছবি ছোট রাখুন (tinypng.com)</div>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button type="button" id="pImgTabUrl" onclick="switchImgTab('p','url')"
+              style="flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--gold);background:var(--gold);color:var(--brown-d);font-family:'Hind Siliguri',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;">
+              🔗 URL/ImgBB লিংক
+            </button>
+            <button type="button" id="pImgTabFile" onclick="switchImgTab('p','file')"
+              style="flex:1;padding:6px;border-radius:8px;border:1.5px solid #e8d5b0;background:#fff;color:var(--txt-m);font-family:'Hind Siliguri',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;">
+              📁 ফাইল আপলোড
+            </button>
+          </div>
+          <div id="pImgUrlBox">
+            <input type="text" id="p-img-url" placeholder="https://i.ibb.co/... বা যেকোনো ছবির লিংক"
+              style="width:100%;padding:8px 10px;border:1.5px solid #e8d5b0;border-radius:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;outline:none;"
+              oninput="previewPkgImgUrl(this.value)">
+            <div style="font-size:.72rem;color:var(--txt-l);margin-top:4px;">
+              💡 <a href="https://imgbb.com" target="_blank" style="color:var(--gold-d);">imgbb.com</a> এ আপলোড করে লিংক দিন — সবচেয়ে দ্রুত!
+            </div>
+          </div>
+          <div id="pImgFileBox" style="display:none;">
+            <input type="file" id="p-img-file" accept="image/*" style="width:100%;margin-bottom:8px;font-family:'Hind Siliguri',sans-serif;font-size:.82rem;" onchange="previewPkgImg(this)">
+            <div style="font-size:.72rem;color:var(--txt-l);">⚠️ ফাইল আপলোড করলে লোড হতে দেরি হতে পারে</div>
+          </div>
+          <img id="p-img-prev" style="max-width:100%;max-height:110px;border-radius:7px;display:none;margin-top:8px;">
         </div>
       </div>
       <button class="savebtn" id="pkgSaveBtn" onclick="savePackage()"><i class="fas fa-save"></i> সংরক্ষণ করুন</button>
@@ -743,10 +835,10 @@ nav{flex:1;padding:10px 9px;}
     <div class="mh2"><div class="mt" id="zoneMTitle">নতুন ডেলিভারি এলাকা</div><button class="mcl" onclick="closeZoneMod()"><i class="fas fa-times"></i></button></div>
     <div class="mb">
       <input type="hidden" id="zeditId">
-      <div class="fg2"><label><i class="fas fa-map-marker-alt"></i> এলাকার নাম *</label><input type="text" id="z-name" placeholder="যেমন: মানিকগঞ্জ সদর"></div>
+      <div class="fg2"><label><i class="fas fa-map-marker-alt"></i> এলাকার নাম *</label><input type="text" id="z-name" placeholder="যেমন: মানিকগঞ্জ সদর" oninput="updateZPreview()"></div>
       <div class="fg2">
         <label><i class="fas fa-taka-sign"></i> ডেলিভারি চার্জ (টাকা) *</label>
-        <input type="number" id="z-charge" placeholder="0 = বিনামূল্যে" min="0">
+        <input type="number" id="z-charge" placeholder="0 = বিনামূল্যে" min="0" oninput="updateZPreview()">
         <small style="color:var(--txt-l);font-size:.72rem;margin-top:4px;display:block">০ দিলে সেই এলাকায় বিনামূল্যে ডেলিভারি হবে</small>
       </div>
       <div class="fg2"><label><i class="fas fa-info-circle"></i> বিশেষ নোট (ঐচ্ছিক)</label><input type="text" id="z-note" placeholder="যেমন: ৩০ টাকা ডেলিভারি চার্জ"></div>
@@ -781,6 +873,8 @@ auth.onAuthStateChanged(u=>{
     document.getElementById('loginPage').style.display='none';
     document.getElementById('adminApp').style.display='block';
     initAdmin();
+    // sidebar branch tabs render করো
+    renderBranchTabs();
   } else {
     document.getElementById('loginPage').style.display='flex';
     document.getElementById('adminApp').style.display='none';
@@ -802,7 +896,7 @@ async function doLogout(){ await auth.signOut(); }
 ============================================================ */
 let allOrders=[], allMenu=[], allPkgs=[], allZones=[], notifs=[];
 let oFiltStat='all';
-let curPItems=[], menuImgData='', pkgImgData='';
+let curPItems=[], menuImgData='', pkgImgData='', pkgImgData2='';
 let settImgs={logo:'',cover:''};
 let settData={name:'কাচ্চি ডাইন',branch:'মানিকগঞ্জ শাখা',hotline:'01700-000000',address:'',facebook:'',whatsapp:'',logo:'',cover:''};
 
@@ -826,6 +920,7 @@ function initAdmin(){
   listenMenu();
   listenPkgs();
   listenZones();
+  syncAllBranchStatus(); // সব শাখার বন্ধ/খোলা status Firebase থেকে realtime sync
 }
 
 /* ============================================================
@@ -948,6 +1043,8 @@ function listenZones(){
 /* ============================================================
    STATS
 ============================================================ */
+// HTML escape helper — XSS prevention
+const _e = s => (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 function toBn(n){ return String(n).replace(/[0-9]/g,d=>'০১২৩৪৫৬৭৮৯'[d]); }
 function updateStats(){
   const today=new Date().toDateString();
@@ -1023,14 +1120,14 @@ function renderOrders(list){
         <span class="sbadge s-${o.status==='out_for_delivery'?'out':o.status}">${sLabel(o.status)}</span>
       </div>
       <div class="oinfo">
-        <span><i class="fas fa-user"></i>${o.name}</span>
-        <span><i class="fas fa-phone"></i>${o.phone}</span>
-        <span><i class="fas fa-map-marker-alt"></i>${o.address}</span>
+        <span><i class="fas fa-user"></i>${_e(o.name)}</span>
+        <span><i class="fas fa-phone"></i>${_e(o.phone)}</span>
+        <span><i class="fas fa-map-marker-alt"></i>${_e(o.address)}</span>
       </div>
-      ${o.zone_name?`<div class="ozone"><i class="fas fa-motorcycle"></i> ${o.zone_name} — ডেলিভারি চার্জ: ${o.delivery_charge>0?'৳'+o.delivery_charge:'বিনামূল্যে ✅'}</div>`:''}
+      ${o.zone_name?`<div class="ozone"><i class="fas fa-motorcycle"></i> ${_e(o.zone_name)} — ডেলিভারি চার্জ: ${o.delivery_charge>0?'৳'+o.delivery_charge:'বিনামূল্যে ✅'}</div>`:''}
       <div class="oitems">
-        ${(o.items||[]).map(i=>`${i.name} (${i.size}) ×${i.qty} = ৳${i.price*i.qty}`).join('<br>')}
-        ${o.note?`<br><em style="color:var(--txt-l)">নোট: ${o.note}</em>`:''}
+        ${(o.items||[]).map(i=>`${_e(i.name)} (${_e(i.size)}) ×${i.qty} = ৳${i.price*i.qty}`).join('<br>')}
+        ${o.note?`<br><em style="color:var(--txt-l)">নোট: ${_e(o.note)}</em>`:''}
       </div>
       <div class="oprice-row">
         <span>খাবার: ৳${o.subtotal||o.total}</span>
@@ -1155,18 +1252,38 @@ async function importDefaultMenu(){
     DEF_MENU_ITEMS.forEach(item=>{ batch[item.id]={...item,creAt:Date.now(),updAt:Date.now()}; });
     await dbRef('menu').set(batch);
     toast('✅ ডিফল্ট মেনু DB-তে আমদানি হয়েছে!');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> আমদানি সম্পন্ন';
   } catch(e){
     toast('আমদানি ব্যর্থ: '+e.message);
     btn.disabled=false; btn.innerHTML='<i class="fas fa-download"></i> ডিফল্ট মেনু আমদানি করুন';
   }
 }
+function onCatChange(){
+  const v = document.getElementById('m-cat').value;
+  const box = document.getElementById('customCatBox');
+  box.style.display = v === '__custom__' ? 'block' : 'none';
+  if(v !== '__custom__') document.getElementById('m-cat-custom').value='';
+}
+function getSelectedCat(){
+  const v = document.getElementById('m-cat').value;
+  if(v === '__custom__'){
+    const custom = document.getElementById('m-cat-custom').value.trim();
+    return custom || '';
+  }
+  return v;
+}
+
 function openMenuMod(){
   document.getElementById('meditId').value='';
   ['m-name','m-desc','m-emoji'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('m-cat').value='';
+  document.getElementById('customCatBox').style.display='none';
+  document.getElementById('m-cat-custom').value='';
   document.getElementById('m-img-prev').style.display='none';
+  document.getElementById('m-img-url').value='';
   document.getElementById('menuMTitle').textContent='নতুন মেনু আইটেম';
   menuImgData='';
+  switchImgTab('m','url');
   initSizeRows([{label:'১ জনের',price:''},{label:'৩ জনের',price:''},{label:'৫ জনের',price:''}]);
   document.getElementById('menuMOvl').classList.add('on');
   document.getElementById('menuMBox').classList.add('on');
@@ -1176,12 +1293,35 @@ function editMenuItem(id){
   const item=allMenu.find(i=>i.id===id); if(!item) return;
   document.getElementById('meditId').value=id;
   document.getElementById('m-name').value=item.name||'';
-  document.getElementById('m-cat').value=item.cat||'';
+  // category set করো — custom হলে input এ দেখাও
+  const existingCats = Array.from(document.getElementById('m-cat').options).map(o=>o.value);
+  if(item.cat && !existingCats.includes(item.cat)){
+    // custom category — option dynamically add করো
+    const opt = document.createElement('option');
+    opt.value = item.cat; opt.textContent = item.cat;
+    const customOpt = document.querySelector('#m-cat option[value="__custom__"]');
+    document.getElementById('m-cat').insertBefore(opt, customOpt);
+  }
+  document.getElementById('m-cat').value = item.cat||'';
+  document.getElementById('customCatBox').style.display='none';
   document.getElementById('m-desc').value=item.desc||'';
   document.getElementById('m-emoji').value=item.emoji||'';
   menuImgData=item.img||'';
   const prev=document.getElementById('m-img-prev');
-  if(item.img){ prev.src=item.img; prev.style.display='block'; } else { prev.style.display='none'; }
+  if(item.img){
+    prev.src=item.img; prev.style.display='block';
+    // URL হলে URL field এ দেখাও
+    if(item.img.startsWith('http')){
+      document.getElementById('m-img-url').value=item.img;
+      switchImgTab('m','url');
+    } else {
+      switchImgTab('m','file');
+    }
+  } else {
+    prev.style.display='none';
+    document.getElementById('m-img-url').value='';
+    switchImgTab('m','url');
+  }
   document.getElementById('menuMTitle').textContent='আইটেম সম্পাদনা';
   // sizes নতুন ফরম্যাট অথবা পুরনো p1/p2/p3 থেকে কনভার্ট
   let sizes = [];
@@ -1207,7 +1347,7 @@ function previewMenuImg(inp){
 }
 async function saveMenuItem(){
   const name=document.getElementById('m-name').value.trim();
-  const cat=document.getElementById('m-cat').value;
+  const cat=getSelectedCat();
   if(!name||!cat){ toast('নাম ও ক্যাটাগরি আবশ্যক!'); return; }
   // sizeRows থেকে valid sizes বের করো
   const validSizes = sizeRows.filter(s=>s.label && s.price>0);
@@ -1289,20 +1429,21 @@ function renderPkgGrid(){
     </div>`).join('');
 }
 
-async function importDefaultPkgs(){
-  const btn=event.target.closest('button');
+async function importDefaultPkgs(btnEl){
+  const btn = btnEl || (typeof event!=='undefined' && event.target ? event.target.closest('button') : null);
+  if(!btn){ toast('আমদানি শুরু হচ্ছে...'); }
   btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> আমদানি হচ্ছে...';
   try{
     const batch={};
     DEF_PKGS_ITEMS.forEach(p=>{ batch[p.id]={...p,creAt:Date.now(),updAt:Date.now()}; });
     await dbRef('packages').set(batch);
     toast('✅ ডিফল্ট প্যাকেজ DB-তে আমদানি হয়েছে!');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-check"></i> আমদানি সম্পন্ন';
   } catch(e){
     toast('আমদানি ব্যর্থ: '+e.message);
     btn.disabled=false; btn.innerHTML='<i class="fas fa-download"></i> ডিফল্ট প্যাকেজ আমদানি করুন';
   }
 }
-let pkgImgData2='';
 function openPkgMod(){
   curPItems=[];
   document.getElementById('peditId').value='';
@@ -1310,8 +1451,10 @@ function openPkgMod(){
   document.getElementById('p-price').value='';
   document.getElementById('pitemTags').innerHTML='';
   document.getElementById('p-img-prev').style.display='none';
+  document.getElementById('p-img-url').value='';
   document.getElementById('pkgMTitle').textContent='নতুন প্যাকেজ';
   pkgImgData2='';
+  switchImgTab('p','url');
   document.getElementById('pkgMOvl').classList.add('on');
   document.getElementById('pkgMBox').classList.add('on');
 }
@@ -1326,7 +1469,17 @@ function editPkg(id){
   pkgImgData2=pkg.img||'';
   renderPItems();
   const prev=document.getElementById('p-img-prev');
-  if(pkg.img){ prev.src=pkg.img; prev.style.display='block'; } else { prev.style.display='none'; }
+  if(pkg.img){
+    prev.src=pkg.img; prev.style.display='block';
+    if(pkg.img.startsWith('http')){
+      document.getElementById('p-img-url').value=pkg.img;
+      switchImgTab('p','url');
+    } else { switchImgTab('p','file'); }
+  } else {
+    prev.style.display='none';
+    document.getElementById('p-img-url').value='';
+    switchImgTab('p','url');
+  }
   document.getElementById('pkgMTitle').textContent='প্যাকেজ সম্পাদনা';
   document.getElementById('pkgMOvl').classList.add('on');
   document.getElementById('pkgMBox').classList.add('on');
@@ -1400,10 +1553,6 @@ function openZoneMod(){
   document.getElementById('zoneMTitle').textContent='নতুন ডেলিভারি এলাকা';
   document.getElementById('zoneMOvl').classList.add('on');
   document.getElementById('zoneMBox').classList.add('on');
-  // Live preview
-  ['z-name','z-charge'].forEach(id=>{
-    document.getElementById(id).addEventListener('input', updateZPreview);
-  });
 }
 function updateZPreview(){
   const name=document.getElementById('z-name').value.trim()||'—';
@@ -1584,6 +1733,20 @@ function showRulesHelper(){
     "zones": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "status": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "branches": {
+      "$branch": {
+        "settings":  { ".read": true, ".write": "auth != null" },
+        "menu":      { ".read": true, ".write": "auth != null" },
+        "packages":  { ".read": true, ".write": "auth != null" },
+        "orders":    { ".read": "auth != null", ".write": true },
+        "zones":     { ".read": true, ".write": "auth != null" },
+        "status":    { ".read": true, ".write": "auth != null" }
+      }
     }
   }
 }</pre>
@@ -1870,6 +2033,7 @@ const DEFAULT_BRANCHES = [
   {key:'brahmanbaria', name:'ব্রাহ্মণবাড়িয়া',    icon:'🏙'},
   {key:'faridpur',     name:'ফরিদপুর',            icon:'🏙'},
   {key:'madaripur',    name:'মাদারীপুর',          icon:'🏙'},
+  {key:'newmanikganj', name:'নিউ মানিকগঞ্জ',      icon:'🏠'},
 ];
 
 // localStorage থেকে closed status নাও, কিন্তু শাখার তালিকা সবসময় DEFAULT থেকে
@@ -1884,43 +2048,97 @@ function saveBranches(){
   localStorage.setItem('kd_branch_status', JSON.stringify(st));
 }
 
-function renderBranchTabs(){
+function renderBranchTabs(filter){
   const bar = document.getElementById('branchTabs');
   if(!bar) return;
-  bar.innerHTML = branches.map((b,i) => {
+  const q = (filter||'').toLowerCase();
+  const list = branches.filter(b=> !q || b.name.includes(q));
+
+  bar.innerHTML = list.map((b,_) => {
+    // find real index in branches[]
+    const i = branches.indexOf(b);
     const active = b.key === activeBranch.key;
     const closed = b.closed === true;
-    return '<div style="display:flex;align-items:center;margin-bottom:2px;">'+
-      '<button onclick="switchBranch('+i+')" style="'+
-        'background:'+(active?'var(--gold)':(closed?'rgba(239,68,68,.2)':'rgba(255,255,255,.1)'))+';'+
-        'color:'+(active?'var(--brown-d)':(closed?'#fca5a5':'rgba(255,255,255,.8)'))+';'+
-        'border:1.5px solid '+(active?'var(--gold)':(closed?'rgba(239,68,68,.5)':'rgba(255,255,255,.2)'))+';'+
-        'border-right:none;border-radius:20px 0 0 20px;padding:4px 12px;'+
-        'font-family:Hind Siliguri,sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;">'+
-        (closed?'🔴 ':'🟢 ')+(b.icon||'🏪')+' '+b.name+
-      '</button>'+
-      '<button onclick="toggleBranchStatus('+i+')" title="'+(closed?'চালু করুন':'বন্ধ করুন')+'" style="'+
-        'background:'+(closed?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)')+';'+
-        'border:1.5px solid '+(closed?'rgba(34,197,94,.4)':'rgba(239,68,68,.3)')+';'+
-        'border-left:none;border-right:none;padding:4px 7px;'+
-        'color:'+(closed?'#86efac':'#fca5a5')+';cursor:pointer;font-size:.72rem;">'+
-        (closed?'▶':'⏸')+
-      '</button>'+
-      (branches.length>1 ? '<button onclick="removeBranch('+i+')" style="background:rgba(239,68,68,.15);border:1.5px solid rgba(239,68,68,.25);border-left:none;border-radius:0 20px 20px 0;padding:4px 7px;color:#fca5a5;cursor:pointer;font-size:.72rem;">✕</button>' : '<span style="border-radius:0 20px 20px 0;border:1.5px solid rgba(255,255,255,.1);border-left:none;padding:4px 7px;color:transparent;">✕</span>')+
-      '</div>';
-  }).join('');
+    return `<div style="
+      background:${active ? 'rgba(201,162,39,.18)' : closed ? 'rgba(239,68,68,.12)' : 'rgba(255,255,255,.06)'};
+      border:1.5px solid ${active ? 'var(--gold)' : closed ? 'rgba(239,68,68,.4)' : 'rgba(255,255,255,.12)'};
+      border-radius:12px;overflow:hidden;transition:all .2s;
+    ">
+      <!-- শাখার নাম ও status row -->
+      <div onclick="switchBranch(${i})" style="display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;">
+        <span style="font-size:1rem;line-height:1;">${b.icon||'🏪'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.78rem;font-weight:700;color:${active?'var(--gold)':'#fff'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.name}</div>
+          <div style="font-size:.65rem;color:${closed?'#fca5a5':'#86efac'};margin-top:1px;">${closed?'🔴 বন্ধ':'🟢 চালু'}${active?' · <span style="color:var(--gold)">সক্রিয়</span>':''}</div>
+        </div>
+      </div>
+      <!-- Action buttons -->
+      <div style="display:flex;border-top:1px solid rgba(255,255,255,.07);">
+        <button onclick="toggleBranchStatus(${i})" style="
+          flex:1;padding:5px 4px;border:none;border-right:1px solid rgba(255,255,255,.07);
+          background:${closed?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};
+          color:${closed?'#86efac':'#fca5a5'};
+          font-family:'Hind Siliguri',sans-serif;font-size:.7rem;font-weight:700;cursor:pointer;">
+          ${closed?'▶ চালু':'⏸ বন্ধ'}
+        </button>
+        ${branches.length>1
+          ? `<button onclick="removeBranch(${i})" style="padding:5px 9px;border:none;background:rgba(239,68,68,.1);color:#fca5a5;cursor:pointer;font-size:.72rem;" title="সরান">✕</button>`
+          : `<span style="padding:5px 9px;color:transparent;font-size:.72rem;">✕</span>`
+        }
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:rgba(255,255,255,.35);font-size:.78rem;padding:8px;">কোনো শাখা পাওয়া যায়নি</div>';
+
+  // header badge update
+  const ab = document.getElementById('activeBranchBadge');
+  if(ab) ab.textContent = activeBranch.name;
+  const openN  = branches.filter(b=>!b.closed).length;
+  const closedN = branches.filter(b=>b.closed).length;
+  const oc = document.getElementById('branchOpenCount');
+  const cc = document.getElementById('branchClosedCount');
+  if(oc) oc.textContent = '🟢 '+openN+' চালু';
+  if(cc){ cc.textContent = '🔴 '+closedN+' বন্ধ'; cc.style.display = closedN>0 ? 'inline' : 'none'; }
+}
+
+function filterBranchTabs(q){ renderBranchTabs(q); }
+
+let _branchPanelOpen = false;
+function toggleBranchPanel(){
+  _branchPanelOpen = !_branchPanelOpen;
+  const panel = document.getElementById('branchPanel');
+  const arrow = document.getElementById('branchPanelArrow');
+  if(_branchPanelOpen){
+    panel.style.maxHeight = '420px';
+    if(arrow) arrow.style.transform = 'rotate(180deg)';
+    document.getElementById('branchSearch').focus();
+  } else {
+    panel.style.maxHeight = '52px';
+    if(arrow) arrow.style.transform = 'rotate(0deg)';
+  }
 }
 
 function switchBranch(i){
+  // ১. পুরনো BRANCH_PREFIX সেভ করো (listener বন্ধ করার জন্য)
+  const oldPrefix = BRANCH_PREFIX;
+  // ২. নতুন শাখা সেট করো
   activeBranch = branches[i];
   BRANCH_PREFIX = activeBranch.key ? 'branches/'+activeBranch.key+'/' : '';
   renderBranchTabs();
-  // পুরনো Firebase listeners বন্ধ করো
-  db.ref(BRANCH_PREFIX || '/').off();
+  // ৩. পুরনো path এর Firebase listeners বন্ধ করো
+  try {
+    ['settings','menu','packages','orders','zones','status'].forEach(p=>{
+      try{ db.ref((oldPrefix||'')+p).off(); }catch(e){}
+    });
+    if(oldPrefix) { try{ db.ref(oldPrefix).off(); }catch(e){} }
+    else { try{ db.ref('/').off(); }catch(e){} }
+  } catch(e){}
+  // ৪. State reset
   settData={name:'কাচ্চি ডাইন',branch:'',hotline:'',address:'',facebook:'',whatsapp:'',logo:'',cover:''};
-  // নতুন শাখার ডেটা লোড করো
+  settImgs={logo:'',cover:''};
   allMenu=[]; allPkgs=[]; allOrders=[]; allZones=[];
+  // ৫. নতুন শাখার ডেটা লোড করো
   listenSettings(); listenOrders(); listenMenu(); listenPkgs(); listenZones();
+  renderBranchTabs();
   toast('📍 শাখা: '+activeBranch.name);
 }
 
@@ -1960,9 +2178,9 @@ function removeBranch(i){
   branches.splice(i,1); saveBranches(); renderBranchTabs();
 }
 
-// Page load এ Firebase থেকে সব শাখার status sync করো
+// Firebase থেকে সব শাখার status realtime sync করো
 function syncAllBranchStatus(){
-  branches.forEach((b, i) => {
+  DEFAULT_BRANCHES.forEach((b, i) => {
     const fbPath = b.key ? 'branches/'+b.key+'/status' : 'status';
     db.ref(fbPath).on('value', snap => {
       const v = snap.val();
@@ -1973,8 +2191,61 @@ function syncAllBranchStatus(){
   });
 }
 
-renderBranchTabs();
-syncAllBranchStatus();
+
+/* ============================================================
+   IMG TAB SWITCHER + URL PREVIEW
+============================================================ */
+function switchImgTab(prefix, tab){
+  const urlBox  = document.getElementById(prefix+'ImgUrlBox');
+  const fileBox = document.getElementById(prefix+'ImgFileBox');
+  const tabUrl  = document.getElementById(prefix+'ImgTabUrl');
+  const tabFile = document.getElementById(prefix+'ImgTabFile');
+  if(tab === 'url'){
+    urlBox.style.display  = 'block';
+    fileBox.style.display = 'none';
+    tabUrl.style.background  = 'var(--gold)';
+    tabUrl.style.border      = '1.5px solid var(--gold)';
+    tabUrl.style.color       = 'var(--brown-d)';
+    tabFile.style.background = '#fff';
+    tabFile.style.border     = '1.5px solid #e8d5b0';
+    tabFile.style.color      = 'var(--txt-m)';
+  } else {
+    urlBox.style.display  = 'none';
+    fileBox.style.display = 'block';
+    tabUrl.style.background  = '#fff';
+    tabUrl.style.border      = '1.5px solid #e8d5b0';
+    tabUrl.style.color       = 'var(--txt-m)';
+    tabFile.style.background = 'var(--gold)';
+    tabFile.style.border     = '1.5px solid var(--gold)';
+    tabFile.style.color      = 'var(--brown-d)';
+  }
+}
+
+function previewMenuImgUrl(url){
+  const prev = document.getElementById('m-img-prev');
+  if(url && url.startsWith('http')){
+    menuImgData = url;
+    prev.src = url;
+    prev.style.display = 'block';
+    prev.onerror = ()=>{ prev.style.display='none'; menuImgData=''; toast('❌ ছবির লিংক কাজ করছে না'); };
+  } else {
+    prev.style.display = 'none';
+    menuImgData = '';
+  }
+}
+
+function previewPkgImgUrl(url){
+  const prev = document.getElementById('p-img-prev');
+  if(url && url.startsWith('http')){
+    pkgImgData2 = url;
+    prev.src = url;
+    prev.style.display = 'block';
+    prev.onerror = ()=>{ prev.style.display='none'; pkgImgData2=''; toast('❌ ছবির লিংক কাজ করছে না'); };
+  } else {
+    prev.style.display = 'none';
+    pkgImgData2 = '';
+  }
+}
 </script>
 </body>
 </html>
