@@ -171,6 +171,9 @@ nav{flex:1;padding:10px 9px;}
 .mc-price{font-size:.8rem;font-weight:600;color:var(--gold-d);margin-bottom:7px;}
 .mc-acts{display:flex;gap:5px;}
 .ebtn,.dbtn{flex:1;padding:5px;border:none;border-radius:6px;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:3px;font-family:'Hind Siliguri',sans-serif;}
+.mc-off{ opacity:.6; }
+.tbtn-off{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:var(--rs);padding:5px 10px;font-family:'Hind Siliguri',sans-serif;font-size:.76rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.tbtn-on{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:var(--rs);padding:5px 10px;font-family:'Hind Siliguri',sans-serif;font-size:.76rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;}
 .ebtn{background:#dbeafe;color:#1d4ed8;}.dbtn{background:#fee2e2;color:#dc2626;}
 
 /* ZONE MANAGEMENT */
@@ -277,8 +280,8 @@ nav{flex:1;padding:10px 9px;}
       <h1>কাচ্চি ডাইন</h1>
       <p>অ্যাডমিন কন্ট্রোল প্যানেল</p>
     </div>
-    <div class="fg"><label><i class="fas fa-envelope"></i> ইমেইল</label><input type="email" id="lemail" placeholder="admin@email.com"></div>
-    <div class="fg"><label><i class="fas fa-lock"></i> পাসওয়ার্ড</label><input type="password" id="lpass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="fg"><label><i class="fas fa-envelope"></i> ইমেইল</label><input type="email" id="lemail" placeholder="admin@email.com" autocomplete="off"></div>
+    <div class="fg"><label><i class="fas fa-lock"></i> পাসওয়ার্ড</label><input type="password" id="lpass" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="login-btn" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> লগইন করুন</button>
     <div class="lerr" id="lerr"></div>
     <p class="login-hint">Firebase Authentication দিয়ে সুরক্ষিত</p>
@@ -509,6 +512,38 @@ nav{flex:1;padding:10px 9px;}
               </div>
             </div>
           </div>
+          <!-- BKASH SETTINGS -->
+          <div class="ssec">
+            <div class="ssec-h">
+              <span style="font-size:1.1rem;">💳</span> বিকাশ পেমেন্ট সেটিংস
+            </div>
+            <div class="ssec-b">
+              <div class="fg2">
+                <label>বিকাশ নম্বর (ফাঁকা রাখলে বিকাশ অপশন দেখাবে না)</label>
+                <input type="tel" id="st-bkash" placeholder="01XXXXXXXXX" oninput="previewBkash()" onchange="previewBkash()">
+              </div>
+              <div class="fg2">
+                <label>অ্যাকাউন্টের ধরন</label>
+                <select id="st-bkash-type" onchange="previewBkash()">
+                  <option value="personal">পার্সোনাল (Send Money — চার্জ প্রযোজ্য)</option>
+                  <option value="merchant">মার্চেন্ট (Payment — কোনো চার্জ নেই)</option>
+                </select>
+              </div>
+              <div id="bkashPreviewBox" style="display:none;background:linear-gradient(135deg,#fff0f6,#ffe0ee);border:2px solid #e2136e;border-radius:12px;padding:12px 14px;">
+                <div style="font-size:.78rem;font-weight:700;color:#e2136e;margin-bottom:6px;">👀 কাস্টমার এভাবে দেখবে:</div>
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:#fff;border-radius:9px;border:1.5px solid #e2136e;">
+                  <span style="font-size:1.2rem;">💳</span>
+                  <div>
+                    <div id="bkashPreviewLabel" style="font-size:.85rem;font-weight:700;color:#e2136e;"></div>
+                    <div id="bkashPreviewSub" style="font-size:.72rem;color:#9B7A50;"></div>
+                  </div>
+                </div>
+                <div style="margin-top:8px;font-size:.76rem;color:#9B7A50;">নম্বর: <strong id="bkashPreviewNum" style="color:#e2136e;"></strong></div>
+              </div>
+
+            </div>
+          </div>
+
           <button class="bigsavebtn" id="settSaveBtn" onclick="saveSettings()"><i class="fas fa-save"></i> সেটিংস সংরক্ষণ করুন</button>
 
           <!-- RULES HELP BOX — always visible in settings -->
@@ -590,7 +625,7 @@ nav{flex:1;padding:10px 9px;}
                 <label><i class="fas fa-lock"></i> বর্তমান পাসওয়ার্ড *</label>
                 <div style="position:relative">
                   <input type="password" id="pw-current" placeholder="বর্তমান পাসওয়ার্ড দিন"
-                    style="padding-right:42px">
+                    autocomplete="new-password" style="padding-right:42px">
                   <button type="button" onclick="togglePw('pw-current','eye-cur')"
                     style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt-l);cursor:pointer;font-size:1rem;">
                     <i class="fas fa-eye" id="eye-cur"></i>
@@ -602,7 +637,7 @@ nav{flex:1;padding:10px 9px;}
                 <label><i class="fas fa-key"></i> নতুন পাসওয়ার্ড *</label>
                 <div style="position:relative">
                   <input type="password" id="pw-new" placeholder="নতুন পাসওয়ার্ড (সর্বনিম্ন ৬ অক্ষর)"
-                    oninput="checkPwStrength()" style="padding-right:42px">
+                    autocomplete="new-password" oninput="checkPwStrength()" style="padding-right:42px">
                   <button type="button" onclick="togglePw('pw-new','eye-new')"
                     style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt-l);cursor:pointer;font-size:1rem;">
                     <i class="fas fa-eye" id="eye-new"></i>
@@ -621,7 +656,7 @@ nav{flex:1;padding:10px 9px;}
                 <label><i class="fas fa-check-circle"></i> নতুন পাসওয়ার্ড নিশ্চিত করুন *</label>
                 <div style="position:relative">
                   <input type="password" id="pw-confirm" placeholder="পাসওয়ার্ড আবার দিন"
-                    oninput="checkPwMatch()" style="padding-right:42px">
+                    autocomplete="new-password" oninput="checkPwMatch()" style="padding-right:42px">
                   <button type="button" onclick="togglePw('pw-confirm','eye-con')"
                     style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt-l);cursor:pointer;font-size:1rem;">
                     <i class="fas fa-eye" id="eye-con"></i>
@@ -930,9 +965,15 @@ function listenSettings(){
   dbRef('settings').on('value', snap=>{
     const v=snap.val();
     // শাখা বদলালে পুরনো ডেটা রিসেট করো
-    settData={name:'কাচ্চি ডাইন',branch:'',hotline:'',address:'',facebook:'',whatsapp:'',logo:'',cover:''};
+    settData={name:'কাচ্চি ডাইন',branch:'',hotline:'',address:'',facebook:'',whatsapp:'',logo:'',cover:'',bkash:'',bkash_type:'personal'};
     if(v){ settData={...settData,...v}; }
     applySett();
+    // bkash fields আপডেট করো
+    const bkEl = document.getElementById('st-bkash');
+    const bkTy = document.getElementById('st-bkash-type');
+    if(bkEl) bkEl.value = settData.bkash||'';
+    if(bkTy) bkTy.value = settData.bkash_type||'personal';
+    if(typeof previewBkash==='function') previewBkash();
   });
 }
 function applySett(){
@@ -1123,6 +1164,8 @@ function renderOrders(list){
         <span><i class="fas fa-user"></i>${_e(o.name)}</span>
         <span><i class="fas fa-phone"></i>${_e(o.phone)}</span>
         <span><i class="fas fa-map-marker-alt"></i>${_e(o.address)}</span>
+        ${o.payment_method_label?`<span style="color:${o.payment_method==='cod'?'#d97706':'#e2136e'};font-weight:700;"><i class="fas fa-credit-card"></i> ${_e(o.payment_method_label)}</span>`:''}
+        ${o.bkash_trx?`<span style="color:#e2136e;font-weight:700;"><i class="fas fa-hashtag"></i> TrxID: ${_e(o.bkash_trx)}</span>`:''}
       </div>
       ${o.zone_name?`<div class="ozone"><i class="fas fa-motorcycle"></i> ${_e(o.zone_name)} — ডেলিভারি চার্জ: ${o.delivery_charge>0?'৳'+o.delivery_charge:'বিনামূল্যে ✅'}</div>`:''}
       <div class="oitems">
@@ -1200,6 +1243,20 @@ function removeSizeRow(i){
   sizeRows.splice(i,1);
   renderSizeRows();
 }
+
+/* ── MENU ITEM ACTIVE TOGGLE ── */
+async function toggleMenuActive(id, makeActive){
+  const item = allMenu.find(i=>i.id===id);
+  if(!item) return;
+  const newActive = makeActive ? true : false;
+  try{
+    await dbRef('menu/'+id+'/active').set(newActive);
+    toast(newActive ? '✅ আইটেম চালু হয়েছে' : '⛔ আইটেম বন্ধ হয়েছে');
+  } catch(e){
+    toast('❌ পরিবর্তন সংরক্ষণ ব্যর্থ');
+  }
+}
+
 function renderMenuGrid(){
   const g=document.getElementById('menuGrid');
   if(!allMenu.length){
@@ -1230,14 +1287,20 @@ function renderMenuGrid(){
     return;
   }
   g.innerHTML=allMenu.map(item=>`
-    <div class="mc">
-      <div class="mc-img">${item.img?`<img src="${item.img}" alt="${item.name}" onerror="this.parentNode.textContent='${item.emoji||'🍛'}'">`:item.emoji||'🍛'}</div>
+    <div class="mc${item.active===false?' mc-off':''}">
+      <div class="mc-img" style="position:relative">
+        ${item.img?`<img src="${item.img}" alt="${item.name}" onerror="this.parentNode.innerHTML='<span style=\'font-size:2rem\'>${item.emoji||'🍛'}</span>'">`:`<span style="font-size:2rem">${item.emoji||'🍛'}</span>`}
+        ${item.active===false?'<div style="position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:700">⛔ বন্ধ</div>':''}
+      </div>
       <div class="mc-body">
         <div class="mc-name">${item.name}</div>
         <div class="mc-cat">${item.cat||''}</div>
         <div class="mc-price">${item.sizes&&item.sizes.length ? item.sizes.map(s=>`${s.label}: ৳${s.price}`).join(' · ') : `১ জনের: ৳${item.p1||0}`}</div>
         <div class="mc-acts">
-          <button class="ebtn" onclick="editMenuItem('${item.id}')"><i class="fas fa-edit"></i> সম্পাদনা</button>
+          <button class="${item.active===false?'tbtn-on':'tbtn-off'}" onclick="toggleMenuActive('${item.id}',${item.active===false})">
+            ${item.active===false?'<i class="fas fa-check-circle"></i> চালু করুন':'<i class="fas fa-ban"></i> বন্ধ করুন'}
+          </button>
+          <button class="ebtn" onclick="editMenuItem('${item.id}')"><i class="fas fa-edit"></i></button>
           <button class="dbtn" onclick="delMenuItem('${item.id}')"><i class="fas fa-trash"></i></button>
         </div>
       </div>
@@ -1386,6 +1449,16 @@ async function delMenuItem(id){
 /* ============================================================
    PACKAGE MANAGEMENT
 ============================================================ */
+
+async function togglePkgActive(id, makeActive){
+  const pkg = allPkgs.find(p=>p.id===id);
+  if(!pkg) return;
+  try{
+    await dbRef('packages/'+id+'/active').set(makeActive ? true : false);
+    toast(makeActive ? '✅ প্যাকেজ চালু হয়েছে' : '⛔ প্যাকেজ বন্ধ হয়েছে');
+  } catch(e){ toast('❌ পরিবর্তন সংরক্ষণ ব্যর্থ'); }
+}
+
 function renderPkgGrid(){
   const g=document.getElementById('pkgGrid');
   if(!allPkgs.length){
@@ -1415,14 +1488,20 @@ function renderPkgGrid(){
     return;
   }
   g.innerHTML=allPkgs.map(pkg=>`
-    <div class="mc">
-      <div class="mc-img">${pkg.img?`<img src="${pkg.img}" alt="${pkg.name}" onerror="this.parentNode.textContent='${pkg.emoji||'🌙'}'">`:pkg.emoji||'🌙'}</div>
+    <div class="mc${pkg.active===false?' mc-off':''}">
+      <div class="mc-img" style="position:relative">
+        ${pkg.img?`<img src="${pkg.img}" alt="${pkg.name}" onerror="this.parentNode.innerHTML='<span style=\'font-size:2rem\'>${pkg.emoji||'🌙'}</span>'">`:`<span style="font-size:2rem">${pkg.emoji||'🌙'}</span>`}
+        ${pkg.active===false?'<div style="position:absolute;inset:0;background:rgba(0,0,0,.45);border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:700">⛔ বন্ধ</div>':''}
+      </div>
       <div class="mc-body">
         <div class="mc-name">${pkg.name}</div>
         <div class="mc-cat">${(pkg.items||[]).slice(0,2).join(', ')}...</div>
         <div class="mc-price">৳ ${pkg.price}</div>
         <div class="mc-acts">
-          <button class="ebtn" onclick="editPkg('${pkg.id}')"><i class="fas fa-edit"></i> সম্পাদনা</button>
+          <button class="${pkg.active===false?'tbtn-on':'tbtn-off'}" onclick="togglePkgActive('${pkg.id}',${pkg.active===false})">
+            ${pkg.active===false?'<i class="fas fa-check-circle"></i> চালু':'<i class="fas fa-ban"></i> বন্ধ'}
+          </button>
+          <button class="ebtn" onclick="editPkg('${pkg.id}')"><i class="fas fa-edit"></i></button>
           <button class="dbtn" onclick="delPkg('${pkg.id}')"><i class="fas fa-trash"></i></button>
         </div>
       </div>
@@ -1656,6 +1735,26 @@ function previewWaNum(val){
   }
 }
 
+function previewBkash(){
+  const num = (document.getElementById('st-bkash')||{value:''}).value.trim();
+  const type = (document.getElementById('st-bkash-type')||{value:'personal'}).value;
+  const box = document.getElementById('bkashPreviewBox');
+  if(!box) return;
+  if(!num){ box.style.display='none'; return; }
+  box.style.display='block';
+  const numEl = document.getElementById('bkashPreviewNum');
+  const lblEl = document.getElementById('bkashPreviewLabel');
+  const subEl = document.getElementById('bkashPreviewSub');
+  if(numEl) numEl.textContent = num;
+  if(type==='personal'){
+    if(lblEl) lblEl.textContent = 'বিকাশ সেন্ড মানি';
+    if(subEl) subEl.textContent = 'চার্জ সহ পাঠাতে হবে (১.৮৫%)';
+  } else {
+    if(lblEl) lblEl.textContent = 'বিকাশ পেমেন্ট';
+    if(subEl) subEl.textContent = 'কোনো চার্জ নেই (মার্চেন্ট)';
+  }
+}
+
 async function saveSettings(){
   const btn=document.getElementById('settSaveBtn');
   btn.disabled=true; btn.innerHTML='<span class="spin"></span> সংরক্ষণ হচ্ছে...';
@@ -1680,6 +1779,8 @@ async function saveSettings(){
     whatsapp:waFinal,
     logo:settImgs.logo||settData.logo||'',
     cover:settImgs.cover||settData.cover||'',
+    bkash:(document.getElementById('st-bkash')||{value:''}).value.trim(),
+    bkash_type:(document.getElementById('st-bkash-type')||{value:'personal'}).value,
     updAt:Date.now()
   };
   try{
